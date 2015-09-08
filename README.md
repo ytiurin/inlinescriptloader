@@ -14,7 +14,7 @@ Script loader that does not require module definitions and implements the `impor
 ```javascript
 //myapp.js
 'import jquery.js';
-'import mymodule.js myModule';
+'import myModule from mymodule.js';
 
 $(document).ready(function(){
   myModule.sayHello();
