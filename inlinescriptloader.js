@@ -21,7 +21,7 @@ pathStack=[],scriptQueue=[],pathMap={},
 rq=new XMLHttpRequest,importPtrn='"import ',
 
 //internal objects aliases
-args=arguments,storage=localStorage,cl=console,
+args=arguments,storage,cl=console,
 
 //properties names
 nmError='error',nmLength='length',nmPush='push',nmSplice='splice',
@@ -29,6 +29,11 @@ nmIndexOf='indexOf',nmSubstring='substring',nmGetItem='getItem',
 nmSetItem='setItem',nmResponceURL='responseURL',
 nmResponceText='responseText',nmGetResponceHeader='getResponseHeader',
 nmLastModif="last-modified";
+
+function isFailStatus(status)
+{
+  return -1<[4,5][nmIndexOf](parseInt(status/100));
+}
 
 function performRequest(type,path,handler)
 {
@@ -75,13 +80,18 @@ function loadScriptBody(path)
 {
   performRequest("get",path,
     function(){
-      if(-1===[4,5][nmIndexOf](parseInt(this.status/100))){
+      if(!isFailStatus(this.status)){
         //store script
         if(userConf.cache&&storage){
-          storage[nmSetItem](path+'[url]',this[nmResponceURL]);
-          storage[nmSetItem](path+'[text]',this[nmResponceText]);
-          storage[nmSetItem](path+'[time]',this[nmGetResponceHeader](
-            nmLastModif));
+          try{
+            storage[nmSetItem](path+'[url]',this[nmResponceURL]);
+            storage[nmSetItem](path+'[text]',this[nmResponceText]);
+            storage[nmSetItem](path+'[time]',this[nmGetResponceHeader](
+              nmLastModif));
+          }
+          catch(e){
+            cl.warn('Caching script failed because: '+e.message);
+          }
         }
 
         queueScriptAndContinue({url:this[nmResponceURL],
@@ -95,6 +105,7 @@ function loadScriptBody(path)
 function iterateScriptLoad()
 {
   if(pathStack[nmLength]){
+    //fill script stack
     var path=pathStack[nmSplice](-1);
 
     var lurl,ltext,ltime;
@@ -107,63 +118,66 @@ function iterateScriptLoad()
       //compare local and remote script time
       performRequest("head",path,
         function(){
-          var failStatus=-1<[4,5][nmIndexOf](parseInt(this.status/100));
           var cacheExpired=this[nmGetResponceHeader](nmLastModif)!==ltime;
 
-          if(!failStatus&&cacheExpired){
+          if(!isFailStatus(this.status)&&cacheExpired)
             loadScriptBody(path);
-            return;
+          else
+            queueScriptAndContinue({url:lurl,text:ltext,source:'local'});
+        });
+    }
+    else
+      //get remote script if not cached
+      loadScriptBody(path);
+  }
+  else{
+    //execute script stack
+    var r,p,dps;
+    for(var i=0;i<scriptQueue[nmLength];i++){
+      //prepare arguments
+      dps=scriptQueue[i].dependencies;
+      r={aNs:[],aVs:[]};
+
+      for(var j=0;j<dps[nmLength];j++)
+        for(var k=scriptQueue[nmLength];k--;)
+          if(pathMap[dps[j].path]===scriptQueue[k].url){
+            r.aNs[nmPush](dps[j].name)
+            r.aVs[nmPush](scriptQueue[k].result);
+            break;
           }
 
-          queueScriptAndContinue({url:lurl,text:ltext,source:'local'});
-        });
+      //create function and try execute script
+      p=new Function(r.aNs,scriptQueue[i].text);
 
-      return;
+      try{
+        scriptQueue[i].result=p.apply({},r.aVs);
+      }
+      catch(e){
+        cl[nmError]('Error executing script '+scriptQueue[i].url+': '+
+          e.message);
+      }
     }
 
-    //get remote script if not cached
-    loadScriptBody(path);
-    return;
-  }
-
-  // execute script stack
-  var r,p,dps;
-  for(var i=0;i<scriptQueue[nmLength];i++){
-    //prepare arguments
-    dps=scriptQueue[i].dependencies;
-    r={aNs:[],aVs:[]};
-
-    for(var j=0;j<dps[nmLength];j++)
-      for(var k=scriptQueue[nmLength];k--;)
-        if(pathMap[dps[j].path]===scriptQueue[k].url){
-          r.aNs[nmPush](dps[j].name)
-          r.aVs[nmPush](scriptQueue[k].result);
-          break;
-        }
-
-    //create function and try execute script
-    p=new Function(r.aNs,scriptQueue[i].text);
-
+    //execute user handler
     try{
-      scriptQueue[i].result=p.apply({},r.aVs);
+      userHandler&&userHandler(scriptQueue[0].result);
     }
-    catch(ex){
-      cl[nmError]('Error executing script '+scriptQueue[i].url+': '+
-        ex.message);
+    catch(e){
+      cl[nmError]('Error executing user callback: '+e.message);
     }
-  }
 
-  try{
-    userHandler&&userHandler(scriptQueue[0].result);
+    userConf.debug&&cl.table(scriptQueue);
   }
-  catch(ex){
-    cl[nmError]('Error executing user callback: '+ex.message);
-  }
-
-  userConf.debug&&cl.table(scriptQueue);
 }
 
 // program start
+try{
+  storage=localStorage;
+}
+catch(e){
+  cl.warn('Caching disabled because: '+e.message);
+}
+
 var userPath=args[0],userConf={},userHandler;
 if(userPath){
   if(Array.isArray(userPath))
