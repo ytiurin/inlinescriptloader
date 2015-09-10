@@ -29,11 +29,11 @@ return {
 };
 ```
 
-### Interface
+## Interface
 
 Inline script loader doesn't have a public interface. You can configure loader's initialization, but you cannot change it's behaviour during the execution.
 
-### Configuration
+## Configuration
 
 To configure loader, you should pass arguments to the loader constructor function.
 ```javascript
@@ -41,32 +41,32 @@ To configure loader, you should pass arguments to the loader constructor functio
 (path[[, options], scriptsLoadedHandler]);
 ```
 
-#### Parameters
+### Parameters
 
 **path**
 
-> String or array of strings representing the path(s) to the javascript file(s) that should be loaded.
+String or array of strings representing the path(s) to the javascript file(s) that should be loaded.
 
 **options**
 
-> Object containing configuration options. See **Possible options**.
+Object containing configuration options. See **Possible options**.
 
 **scriptsLoadedHandler**
 
-> Function to execute when all scripts are loaded.
+Function to execute when all scripts are loaded.
 
 #### Possible options
 
 **cache**
 
->> If `false`, loader will always get scripts from the remote server, ignoring the local cache. Default is `true`.
+If `false`, loader will always get scripts from the remote server, ignoring the local cache. Default is `true`.
 
 **debug**
 
->> If `true`, loader will output debugging data to a console. Default is `false`.
+If `true`, loader will output debugging data to a console. Default is `false`.
 
 
-### Loader code
+## Loader code
 
 If you wish to reduce the network requests number and overal loading time, you better insert the loader code inside your HTML page. 
 
