@@ -35,7 +35,7 @@ Loader doesn't have a public interface. You can configure loader's initializatio
 
 ## Configuration
 
-To configure loader, you should pass arguments to the loader constructor function.
+To configure loader, you should pass arguments to the it's constructor function.
 ```javascript
 !function(){/*INLINE SCRIPT LOADER CODE*/}
 (path[[, options], scriptsLoadedHandler]);
