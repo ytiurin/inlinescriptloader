@@ -43,23 +43,28 @@ To configure loader, you should pass arguments to the loader constructor functio
 
 #### Parameters
 
-> **path**
->
+**path**
+
 > String or array of strings representing the path(s) to the javascript file(s) that should be loaded.
->
-> **options**
-> 
-> Object containing configuration options. Possible options:
->> **cache**
->>
->> If `false`, loader will always get scripts from the remote server, ignoring the local cache. Default is `true`.
->>
->> **debug**
->>
->> If `true`, loader will output debugging data to a console. Default is `false`.
->
-> **scriptsLoadedHandler**
+
+**options**
+
+> Object containing configuration options. See **Possible options**.
+
+**scriptsLoadedHandler**
+
 > Function to execute when all scripts are loaded.
+
+#### Possible options
+
+**cache**
+
+>> If `false`, loader will always get scripts from the remote server, ignoring the local cache. Default is `true`.
+
+**debug**
+
+>> If `true`, loader will output debugging data to a console. Default is `false`.
+
 
 ### Loader code
 
