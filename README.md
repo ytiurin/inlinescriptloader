@@ -75,3 +75,5 @@ You can copy/paste the below code snippet into your HTML page. It will reduce th
 ('YOUR APP PATH');
 </script>
 ```
+
+Don't forget to replace `'YOUR APP PATH'` with your app path
