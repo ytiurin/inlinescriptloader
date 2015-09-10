@@ -76,7 +76,7 @@ If you wish to reduce the network requests number and overal loading time, you b
 </script>
 ```
 
-However, you may insert the loader code inside any of your Javascript files.
+However, you may insert the loader code into any of your Javascript files.
 
 ```javascript
 /* Inline script loader - https://github.com/ytiurin/inlinescriptloader.js */
