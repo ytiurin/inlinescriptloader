@@ -31,7 +31,7 @@ return {
 
 ## Interface
 
-Inline script loader doesn't have a public interface. You can configure loader's initialization, but you cannot change it's behaviour during the execution.
+Loader doesn't have a public interface. You can configure loader's initialization, but you cannot change it's behaviour during the execution.
 
 ## Configuration
 
