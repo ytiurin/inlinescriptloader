@@ -1,6 +1,6 @@
 # Inline script loader
 
-Script loader that does not require a module definition and implements the `import`-like dependency injections. It downloads code via `XHR`, executes it using the `new Function` cunstructor and cache it in browser's local storage.
+Script loader that does not require a module definition and implements the `import`-like dependency injections. It downloads code via `XHR`, executes it using the `new Function` constructor and cache it in browser's local storage.
 
 ## Usage
 
