@@ -76,4 +76,4 @@ You can copy/paste the below code snippet into your HTML page. It will reduce th
 </script>
 ```
 
-Don't forget to replace `'YOUR APP PATH'` with your app path
+Don't forget to replace `'YOUR APP PATH'` with the path to your application entry .js file.
