@@ -37,7 +37,7 @@ Loader doesn't have a public interface. You can configure loader's initializatio
 
 ## Configuration
 
-To configure loader, you should pass arguments to the it's constructor function.
+To configure loader, you should pass arguments to it's constructor function.
 ```javascript
 !function(){/*INLINE SCRIPT LOADER CODE*/}
 (path[[, options], scriptsLoadedHandler]);
@@ -55,7 +55,7 @@ Object containing configuration options. See **Possible options**.
 
 **scriptsLoadedHandler**
 
-Function to execute when all scripts are loaded.
+Function to execute when all scripts are loaded. Function recieve the result of the last executed script as an argument.
 
 #### Possible options
 
