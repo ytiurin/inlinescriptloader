@@ -126,7 +126,7 @@ function iterateScriptLoad()
             queueScriptAndContinue({url:lurl,text:ltext,source:'local'});
         });
     }
-    else;
+    else
       //get remote script if not cached
       loadScriptBody(path);
   }
