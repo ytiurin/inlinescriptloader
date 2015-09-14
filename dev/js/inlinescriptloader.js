@@ -223,12 +223,16 @@ if(userPath){
 }(['/js/app/myapp.js'
   ,'/js/app/post.js'
   ],{
-  cache:false,
+  // cache:false,
   debug:true
 },function(myApp){
   // myApp.launch()
 
   $(function(){
-    $(document.body).append('<p>The execution order should be ONE > TWO > THREE > MAIN > POST </p>')
+    $(document.body).append('<p>The execution order should be ONE > TWO > THREE > MAIN > POST </p>');
+
+    $(document.body).append('<p>Loading time: '+(Date.now()-startTime)+'ms</p>');
   });
 })
+
+var startTime=Date.now();
