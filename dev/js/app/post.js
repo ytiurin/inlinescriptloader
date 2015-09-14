@@ -3,3 +3,5 @@
 $(function(){
   $(document.body).append('<p>And POST</p>')
 })
+
+return 'POST';

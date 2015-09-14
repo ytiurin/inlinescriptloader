@@ -5,3 +5,5 @@
 $(function(){
   $(document.body).append('MAIN is here');
 });
+
+return 'MYAPP';

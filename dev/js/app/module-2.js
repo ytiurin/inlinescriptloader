@@ -3,3 +3,5 @@
 $(function(){
   $(document.body).append('<p>Hi, module TWO</p>');
 });
+
+return 'MODULE TWO';
