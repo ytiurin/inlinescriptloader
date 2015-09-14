@@ -28,7 +28,8 @@ nmError='error',nmLength='length',nmPush='push',nmSplice='splice',
 nmIndexOf='indexOf',nmSubstring='substring',nmGetItem='getItem',
 nmSetItem='setItem',nmResponceURL='responseURL',
 nmResponceText='responseText',nmGetResponceHeader='getResponseHeader',
-nmLastModif="last-modified",nmMessage='message',nmDependencies='dependencies';
+nmLastModif="last-modified",nmMessage='message',nmDependencies='dependencies',
+nmOrder='order';
 
 function isFailStatus(status)
 {
@@ -38,7 +39,7 @@ function isFailStatus(status)
 function performRequest(type,path,handler)
 {
   var rq=new XMLHttpRequest;
-  rq.order=rqOrder++;
+  rq[nmOrder]=rqOrder++;
   rq.onload=function(){
     activeRequests--;
     handler.apply(this,arguments);
@@ -103,7 +104,7 @@ function loadScriptBody(path)
           }
         }
 
-        retrieveDependenciesAndContinue({order:this.order,
+        retrieveDependenciesAndContinue({order:this[nmOrder],
           url:this[nmResponceURL],text:this[nmResponceText],source:'remote'});
       }
       else
@@ -129,7 +130,7 @@ function retrieveScriptFromCache(path)
       if(!isFailStatus(this.status)&&cacheExpired)
         loadScriptBody(path);
       else
-        retrieveDependenciesAndContinue({order:this.order,url:lurl,
+        retrieveDependenciesAndContinue({order:this[nmOrder],url:lurl,
           text:ltext,source:'local'});
     });
 
@@ -139,18 +140,17 @@ function retrieveScriptFromCache(path)
 function iterateScriptLoad()
 {
   if(pathStack[nmLength]){
-    for(;pathStack[nmLength];){
+    for(var path;pathStack[nmLength];){
       //fill script stack
-      var path=pathStack[nmSplice](0,1);
+      path=pathStack[nmSplice](0,1);
 
-      if(!retrieveScriptFromCache(path))
-        //get remote script if not cached
+      retrieveScriptFromCache(path)||
         loadScriptBody(path);
     }
   }
   else{
     //execute script stack
-    scriptQueue=scriptQueue.sort(function(a,b){return a.order<b.order});
+    scriptQueue=scriptQueue.sort(function(a,b){return a[nmOrder]<b[nmOrder]});
     var r,p,dps;
     for(var i=0;i<scriptQueue[nmLength];i++){
       //prepare arguments
