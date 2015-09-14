@@ -28,7 +28,7 @@ nmError='error',nmLength='length',nmPush='push',nmSplice='splice',
 nmIndexOf='indexOf',nmSubstring='substring',nmGetItem='getItem',
 nmSetItem='setItem',nmResponceURL='responseURL',
 nmResponceText='responseText',nmGetResponceHeader='getResponseHeader',
-nmLastModif="last-modified";
+nmLastModif="last-modified",nmMessage='message',nmDependencies='dependencies';
 
 function isFailStatus(status)
 {
@@ -71,7 +71,7 @@ function queueScriptAndContinue(scriptData)
     }
   }
 
-  scriptData.dependencies=dependencies;
+  scriptData[nmDependencies]=dependencies;
   scriptQueue[nmSplice](0,0,scriptData);
   iterateScriptLoad();
 }
@@ -90,7 +90,7 @@ function loadScriptBody(path)
               nmLastModif));
           }
           catch(e){
-            cl.warn('Caching script failed because: '+e.message);
+            cl.warn('Caching script failed because: '+e[nmMessage]);
           }
         }
 
@@ -135,7 +135,7 @@ function iterateScriptLoad()
     var r,p,dps;
     for(var i=0;i<scriptQueue[nmLength];i++){
       //prepare arguments
-      dps=scriptQueue[i].dependencies;
+      dps=scriptQueue[i][nmDependencies];
       r={aNs:[],aVs:[]};
 
       for(var j=0;j<dps[nmLength];j++)
@@ -154,7 +154,7 @@ function iterateScriptLoad()
       }
       catch(e){
         cl[nmError]('Error executing script '+scriptQueue[i].url+': '+
-          e.message);
+          e[nmMessage]);
       }
     }
 
@@ -163,7 +163,7 @@ function iterateScriptLoad()
       userHandler&&userHandler(scriptQueue[0].result);
     }
     catch(e){
-      cl[nmError]('Error executing user callback: '+e.message);
+      cl[nmError]('Error executing user callback: '+e[nmMessage]);
     }
 
     userConf.debug&&cl.table(scriptQueue);
@@ -175,7 +175,7 @@ try{
   storage=localStorage;
 }
 catch(e){
-  cl.warn('Caching disabled because: '+e.message);
+  cl.warn('Caching disabled because: '+e[nmMessage]);
 }
 
 var userPath=args[0],userConf={},userHandler;
