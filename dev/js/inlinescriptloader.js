@@ -14,11 +14,11 @@
 
 var
 
-//state variables
-pathStack=[],scriptQueue=[],pathMap={},
+//configs
+importPtrn='"import ',
 
-//service variables
-rq=new XMLHttpRequest,importPtrn='"import ',
+//state variables
+pathStack=[],scriptQueue=[],pathMap={},rqOrder=0,activeRequests=0,
 
 //internal objects aliases
 args=arguments,storage,cl=console,
@@ -37,14 +37,21 @@ function isFailStatus(status)
 
 function performRequest(type,path,handler)
 {
-  rq.onload=handler;
+  var rq=new XMLHttpRequest;
+  rq.order=rqOrder++;
+  rq.onload=function(){
+    activeRequests--;
+    handler.apply(this,arguments);
+  };
   // anticache parameter affects on already loaded scripts usage effeciency
   // '?'+(new Date().getTime())
   rq.open(type,path,true);
+
+  activeRequests++
   rq.send();
 }
 
-function queueScriptAndContinue(scriptData)
+function retrieveDependenciesAndContinue(scriptData)
 {
   var dependencies=[];
 
@@ -73,7 +80,9 @@ function queueScriptAndContinue(scriptData)
 
   scriptData[nmDependencies]=dependencies;
   scriptQueue[nmSplice](0,0,scriptData);
-  iterateScriptLoad();
+
+  if(activeRequests<1)
+    iterateScriptLoad();
 }
 
 function loadScriptBody(path)
@@ -94,44 +103,54 @@ function loadScriptBody(path)
           }
         }
 
-        queueScriptAndContinue({url:this[nmResponceURL],
-          text:this[nmResponceText],source:'remote'});
+        retrieveDependenciesAndContinue({order:this.order,
+          url:this[nmResponceURL],text:this[nmResponceText],source:'remote'});
       }
       else
         cl[nmError]('Failed loding '+path+': '+this.statusText);
     });
 }
 
+function retrieveScriptFromCache(path)
+{
+  var lurl,ltext,ltime,
+
+  scriptCached=userConf.cache&&storage&&
+    //get script from storage
+    (lurl=storage[nmGetItem](path+'[url]'))!==null&&
+    (ltext=storage[nmGetItem](path+'[text]'))!==null&&
+    (ltime=storage[nmGetItem](path+'[time]'))!==null;
+
+  //compare local and remote script time
+  scriptCached&&performRequest("head",path,
+    function(){
+      var cacheExpired=this[nmGetResponceHeader](nmLastModif)!==ltime;
+
+      if(!isFailStatus(this.status)&&cacheExpired)
+        loadScriptBody(path);
+      else
+        retrieveDependenciesAndContinue({order:this.order,url:lurl,
+          text:ltext,source:'local'});
+    });
+
+  return scriptCached;
+}
+
 function iterateScriptLoad()
 {
   if(pathStack[nmLength]){
-    //fill script stack
-    var path=pathStack[nmSplice](0,1);
+    for(;pathStack[nmLength];){
+      //fill script stack
+      var path=pathStack[nmSplice](0,1);
 
-    var lurl,ltext,ltime;
-    if(userConf.cache&&storage&&
-      //get script from storage
-      (lurl=storage[nmGetItem](path+'[url]'))!==null&&
-      (ltext=storage[nmGetItem](path+'[text]'))!==null&&
-      (ltime=storage[nmGetItem](path+'[time]'))!==null){
-
-      //compare local and remote script time
-      performRequest("head",path,
-        function(){
-          var cacheExpired=this[nmGetResponceHeader](nmLastModif)!==ltime;
-
-          if(!isFailStatus(this.status)&&cacheExpired)
-            loadScriptBody(path);
-          else
-            queueScriptAndContinue({url:lurl,text:ltext,source:'local'});
-        });
+      if(!retrieveScriptFromCache(path))
+        //get remote script if not cached
+        loadScriptBody(path);
     }
-    else
-      //get remote script if not cached
-      loadScriptBody(path);
   }
   else{
     //execute script stack
+    scriptQueue=scriptQueue.sort(function(a,b){return a.order<b.order});
     var r,p,dps;
     for(var i=0;i<scriptQueue[nmLength];i++){
       //prepare arguments
@@ -201,7 +220,9 @@ if(userPath){
   iterateScriptLoad();
 }
 
-}(['/js/app/myapp.js','/js/app/post.js'],{
+}(['/js/app/myapp.js'
+  ,'/js/app/post.js'
+  ],{
   cache:false,
   debug:true
 },function(myApp){
