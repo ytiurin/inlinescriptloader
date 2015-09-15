@@ -18,7 +18,7 @@ var
 importPtrn='"import ',
 
 //state variables
-pathStack=[],scriptQueue=[],pathMap={},rqOrder=0,activeRequests=0,
+pathStack=[],scriptQueue=[],pathMap={},rqOrder=0,activeRequests=0,whenRequestsDone,
 
 //internal objects aliases
 args=arguments,storage,cl=console,
@@ -43,6 +43,7 @@ function performRequest(type,path,handler)
   rq.onload=function(){
     activeRequests--;
     handler.apply(this,arguments);
+    activeRequests<1&&whenRequestsDone&&whenRequestsDone();
   };
   // anticache parameter affects on already loaded scripts usage effeciency
   // '?'+(new Date().getTime())
@@ -86,7 +87,7 @@ function retrieveDependenciesAndContinue(scriptData)
     iterateScriptLoad();
 }
 
-function loadScriptBody(path)
+function loadScriptBody(path,continueHandler)
 {
   performRequest("get",path,
     function(){
@@ -104,8 +105,7 @@ function loadScriptBody(path)
           }
         }
 
-        retrieveDependenciesAndContinue({order:this[nmOrder],
-          url:this[nmResponceURL],text:this[nmResponceText],source:'remote'});
+        continueHandler&&continueHandler.call(this);
       }
       else
         cl[nmError]('Failed loding '+path+': '+this.statusText);
@@ -122,17 +122,25 @@ function retrieveScriptFromCache(path)
     (ltext=storage[nmGetItem](path+'[text]'))!==null&&
     (ltime=storage[nmGetItem](path+'[time]'))!==null;
 
-  //compare local and remote script time
-  scriptCached&&performRequest("head",path,
-    function(){
-      var cacheExpired=this[nmGetResponceHeader](nmLastModif)!==ltime;
+  if(scriptCached){
+    retrieveDependenciesAndContinue({order:rqOrder++,url:lurl,text:ltext,
+      source:'local'});
 
-      if(!isFailStatus(this.status)&&cacheExpired)
-        loadScriptBody(path);
-      else
-        retrieveDependenciesAndContinue({order:this[nmOrder],url:lurl,
-          text:ltext,source:'local'});
-    });
+    //compare local and remote script time
+    scriptCached&&performRequest("head",path,
+      function(){
+        var cacheExpired=this[nmGetResponceHeader](nmLastModif)!==ltime;
+
+        if(!isFailStatus(this.status)&&cacheExpired)
+          loadScriptBody(path,function(){
+            var i;
+
+            if(-1<(i=scriptQueue.map(function(i){return i.url}).indexOf(
+              this[nmResponceURL])))
+              scriptQueue[i].source='late remote';
+          });
+      });
+  }
 
   return scriptCached;
 }
@@ -144,8 +152,12 @@ function iterateScriptLoad()
       //fill script stack
       path=pathStack[nmSplice](0,1);
 
-      retrieveScriptFromCache(path)||
-        loadScriptBody(path);
+      retrieveScriptFromCache(path)
+        ||
+      loadScriptBody(path,function(){
+        retrieveDependenciesAndContinue({order:this[nmOrder],
+          url:this[nmResponceURL],text:this[nmResponceText],source:'remote'});
+      });
     }
   }
   else{
@@ -185,7 +197,9 @@ function iterateScriptLoad()
       cl[nmError]('Error executing user callback: '+e[nmMessage]);
     }
 
-    userConf.debug&&cl.table(scriptQueue);
+    whenRequestsDone=function(){
+      userConf.debug&&cl.table(scriptQueue);
+    };
   }
 }
 
