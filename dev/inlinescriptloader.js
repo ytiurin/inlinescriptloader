@@ -220,8 +220,8 @@ if(userPath){
   iterateScriptLoad();
 }
 
-}(['/js/app/myapp.js'
-  ,'/js/app/post.js'
+}(['/app/myapp.js'
+  ,'/app/post.js'
   ],{
   // cache:false,
   debug:true
