@@ -1,187 +1,128 @@
 /*
-* Inline script loader
+* Inline script loader v0.2
 * https://github.com/ytiurin/inlinescriptloader.js
 *
 * The MIT License (MIT)
 * https://github.com/ytiurin/inlinescriptloader.js/blob/master/LICENSE
 *
-* September 14, 2015
+* September 20, 2015
 */
 
 'use strict';
 
-!function(){
+(function(){
 
-var
+  var
 
-//configs
-importPtrn='"import ',
+  //configs
+  importPtrn='"import ',
 
-//state variables
-pathStack=[],scriptQueue=[],pathMap={},rqOrder=0,activeRequests=0,whenRequestsDone,
+  //internal objects aliases
+  storage,cl=console,
 
-//internal objects aliases
-args=arguments,storage,cl=console,
+  //properties names
+  nmError='error',nmLength='length',nmSplice='splice',nmIndexOf='indexOf',
+  nmResponceText='responseText',nmGetResponceHeader='getResponseHeader',
+  nmLastModif="last-modified",nmMessage='message',nmPath='path',
+  nmDependencies='dependencies';
 
-//properties names
-nmError='error',nmLength='length',nmPush='push',nmSplice='splice',
-nmIndexOf='indexOf',nmSubstring='substring',nmGetItem='getItem',
-nmSetItem='setItem',nmResponceURL='responseURL',
-nmResponceText='responseText',nmGetResponceHeader='getResponseHeader',
-nmLastModif="last-modified",nmMessage='message',nmDependencies='dependencies',
-nmOrder='order';
-
-function isFailStatus(status)
-{
-  return -1<[4,5][nmIndexOf](parseInt(status/100));
-}
-
-function performRequest(type,path,handler)
-{
-  var rq=new XMLHttpRequest;
-  rq[nmOrder]=rqOrder++;
-  rq.onload=function(){
-    activeRequests--;
-    handler.apply(this,arguments);
-    activeRequests<1&&whenRequestsDone&&whenRequestsDone();
-  };
-  // anticache parameter affects on already loaded scripts usage effeciency
-  // '?'+(new Date().getTime())
-  rq.open(type,path,true);
-
-  activeRequests++
-  rq.send();
-}
-
-function retrieveDependenciesAndContinue(scriptData)
-{
-  var dependencies=[];
-
-  //remove repeating dependency
-  for(var i=scriptQueue[nmLength];i--;)
-    if(scriptQueue[i].url===scriptData.url)
-      scriptQueue[nmSplice](i,1);
-
-  //retrieve dependencies
-  var t=scriptData.text.replace(/'|"/g,'"');
-  var p1,p2,dp,words;
-
-  for(;-1<(p1=t[nmIndexOf](importPtrn,p1));p1=p2+1){
-    dp={};
-    p2=t[nmIndexOf]('"',p1+1);
-    words=t[nmSubstring](p1,p2).split(' ');
-    if(words[1]){
-      dp.path=words[1];
-      if(words[2]==='from'&&words[3]){
-        dp.name=words[1];
-        dp.path=words[3];
-      }
-      pathStack[nmSplice](0,0,dp.path);
-    }
+  function mapIndexOf(array,key,value)
+  {
+    for(var r=-1,i=array[nmLength];i--;)
+      if(array[i][key]===value){
+        r=i;break;}
+    return r;
   }
 
-  scriptData[nmDependencies]=dependencies;
-  scriptQueue[nmSplice](0,0,scriptData);
+  function isFailStatus(status)
+  {
+    return -1<[4,5][nmIndexOf](parseInt(status/100));
+  }
 
-  if(activeRequests<1)
-    iterateScriptLoad();
-}
+  function performRequest(type,path,data,onload)
+  {
+    var rq=new XMLHttpRequest;
+    rq[nmPath]=path;
+    rq.d=data;
+    rq.onload=onload;
+    rq.open(type,path,true);
+    rq.send();
+  }
 
-function loadScriptBody(path,continueHandler)
-{
-  performRequest("get",path,
-    function(){
-      if(!isFailStatus(this.status)){
-        //store script
-        if(userConf.cache&&storage){
-          try{
-            storage[nmSetItem](path+'[url]',this[nmResponceURL]);
-            storage[nmSetItem](path+'[text]',this[nmResponceText]);
-            storage[nmSetItem](path+'[time]',this[nmGetResponceHeader](
-              nmLastModif));
-          }
-          catch(e){
-            cl.warn('Caching script failed because: '+e[nmMessage]);
-          }
+  function parseForDI(text)
+  {
+    var dependencies=[];
+
+    //retrieve dependencies
+    var t=text.replace(/'|"/g,'"');
+    var p1,p2,dp,words;
+
+    for(;-1<(p1=t[nmIndexOf](importPtrn,p1));p1=p2+1){
+      dp={};
+      p2=t[nmIndexOf]('"',p1+1);
+      words=t.substring(p1,p2).split(' ');
+      if(words[1]){
+        dp[nmPath]=words[1];
+        if(words[2]==='from'&&words[3]){
+          dp.name=words[1];
+          dp[nmPath]=words[3];
         }
 
-        continueHandler&&continueHandler.call(this);
       }
-      else
-        cl[nmError]('Failed loding '+path+': '+this.statusText);
-    });
-}
-
-function retrieveScriptFromCache(path)
-{
-  var lurl,ltext,ltime,
-
-  scriptCached=userConf.cache&&storage&&
-    //get script from storage
-    (lurl=storage[nmGetItem](path+'[url]'))!==null&&
-    (ltext=storage[nmGetItem](path+'[text]'))!==null&&
-    (ltime=storage[nmGetItem](path+'[time]'))!==null;
-
-  if(scriptCached){
-    retrieveDependenciesAndContinue({order:rqOrder++,url:lurl,text:ltext,
-      source:'local'});
-
-    //compare local and remote script time
-    scriptCached&&performRequest("head",path,
-      function(){
-        var cacheExpired=this[nmGetResponceHeader](nmLastModif)!==ltime;
-
-        if(!isFailStatus(this.status)&&cacheExpired)
-          loadScriptBody(path,function(){
-            var i;
-
-            if(-1<(i=scriptQueue.map(function(i){return i.url}).indexOf(
-              this[nmResponceURL])))
-              scriptQueue[i].source='late remote';
-          });
-      });
-  }
-
-  return scriptCached;
-}
-
-function iterateScriptLoad()
-{
-  if(pathStack[nmLength]){
-    for(var path;pathStack[nmLength];){
-      //fill script stack
-      path=pathStack[nmSplice](0,1);
-
-      retrieveScriptFromCache(path)
-        ||
-      loadScriptBody(path,function(){
-        retrieveDependenciesAndContinue({order:this[nmOrder],
-          url:this[nmResponceURL],text:this[nmResponceText],source:'remote'});
-      });
+      dependencies[nmSplice](0,0,dp);
     }
-  }
-  else{
-    //execute script stack
-    scriptQueue=scriptQueue.sort(function(a,b){return a[nmOrder]<b[nmOrder]});
-    var r,p,dps;
-    for(var i=0;i<scriptQueue[nmLength];i++){
-      //prepare arguments
-      dps=scriptQueue[i][nmDependencies];
-      r={aNs:[],aVs:[]};
 
-      for(var j=0;j<dps[nmLength];j++)
-        for(var k=scriptQueue[nmLength];k--;)
-          if(pathMap[dps[j].path]===scriptQueue[k].url){
-            r.aNs[nmPush](dps[j].name)
-            r.aVs[nmPush](scriptQueue[k].result);
-            break;
+    return dependencies;
+  }
+
+  function loadScriptBody(path,continueHandler)
+  {
+    var confCache=this.ch;
+
+    performRequest("get",path,{},
+      function(){
+        var rq=this;
+
+        if(!isFailStatus(rq.status)){
+          //store script
+          if(confCache&&storage){
+            try{
+              storage.setItem(path+'[text]',rq[nmResponceText]);
+              storage.setItem(path+'[time]',rq[nmGetResponceHeader](
+                nmLastModif));
+            }
+            catch(e){
+              cl.warn('Caching script failed because: '+e[nmMessage]);
+            }
           }
 
+          continueHandler.call(rq);
+        }
+        else
+          cl[nmError]('Failed loading '+path+': '+rq.statusText);
+      });
+  }
+
+  function executeScriptQueue(pathOrder,scriptQueue)
+  {
+    for(var l=0;l<pathOrder[nmLength];l++){
+      var i=mapIndexOf(scriptQueue,nmPath,pathOrder[l]);
+
+      //prepare arguments
+      var argNames=[],argValues=[];
+      var dependencies=scriptQueue[i][nmDependencies];
+      for(var j=0;j<dependencies[nmLength];j++)
+        if(dependencies[j].name){
+          var k=mapIndexOf(scriptQueue,nmPath,dependencies[j][nmPath]);
+          argNames[nmSplice](0,0,dependencies[j].name);
+          argValues[nmSplice](0,0,scriptQueue[k].result);
+        }
+
       //create function and try execute script
-      p=new Function(r.aNs,scriptQueue[i].text);
+      var p=new Function(argNames,scriptQueue[i].text);
 
       try{
-        scriptQueue[i].result=p.apply({},r.aVs);
+        scriptQueue[i].result=p.apply({},argValues);
       }
       catch(e){
         cl[nmError]('Error executing script '+scriptQueue[i].url+': '+
@@ -191,56 +132,129 @@ function iterateScriptLoad()
 
     //execute user handler
     try{
-      userHandler&&userHandler(scriptQueue[0].result);
+      this.uc&&this.uc(scriptQueue[0].result);
     }
     catch(e){
       cl[nmError]('Error executing user callback: '+e[nmMessage]);
     }
-
-    whenRequestsDone=function(){
-      userConf.debug&&cl.table(scriptQueue);
-    };
-  }
-}
-
-// program start
-try{
-  storage=localStorage;
-}
-catch(e){
-  cl.warn('Caching disabled because: '+e[nmMessage]);
-}
-
-var userPath=args[0],userConf={},userHandler;
-if(userPath){
-  if(Array.isArray(userPath))
-    pathStack=userPath[nmSplice](0).reverse();
-  else
-    pathStack[nmSplice](0,0,userPath);
-
-  if(args[1]){
-    if(typeof args[1]==='function')
-      userHandler=args[1];
-    else
-      userConf=args[1];
   }
 
-  if(args[2])
-    userHandler=args[2];
+  function loader()
+  {
+    function applyScriptBody(path,text,source)
+    {
+      var scriptData={};
+      scriptData[nmPath]=path;
+      scriptData.text=text;
+      scriptData[nmDependencies]=parseForDI(text);
+      scriptData.source=source;
+      scriptQueue[nmSplice](0,0,scriptData);
 
-  if(userConf.cache===undefined)
-    userConf.cache=true;
+      var ioPath,ioParentPath,chPath;
+      for(var i=scriptData[nmDependencies][nmLength];i--;){
+        chPath=scriptData[nmDependencies][i][nmPath];
+        ioParentPath=pathOrder[nmIndexOf](path);
+        if(-1<(ioPath=pathOrder[nmIndexOf](chPath))){
+          if(ioPath>ioParentPath){
+            pathOrder[nmSplice](ioPath,1);
+            pathOrder[nmSplice](ioParentPath,0,chPath);
+          }
+        }
+        else{
+          unretrievedCount++;
+          pathOrder[nmSplice](ioParentPath,0,chPath);
+          retrieveScriptByPath(chPath);
+        }
+      }
 
-  iterateScriptLoad();
-}
+      if(--unretrievedCount<1){
+        if(confDebug){
+          cl.log(pathOrder);
+          cl.table(scriptQueue);
+        }
+        executeScriptQueue.bind({uc:userCallback})(pathOrder,scriptQueue);
+      }
+    }
 
-}(['/app/myapp.js'
+    function retrieveScriptByPath(path)
+    {
+      var ltext,ltime;
+
+      if(confCache&&storage&&
+      //get script from storage
+      (ltext=storage.getItem(path+'[text]'))!==null&&
+      (ltime=storage.getItem(path+'[time]'))!==null){
+
+        applyScriptBody(path,ltext,'local');
+
+        //compare local and remote script time
+        performRequest("head",path,{time:ltime},
+          function(){
+            var rq=this;
+
+            // if status is fail, or cache expired
+            if(!isFailStatus(rq.status)&&
+            rq[nmGetResponceHeader](nmLastModif)!==rq.d.time)
+              myLoadScriptBody(rq[nmPath],function(){
+                var i;
+                if(-1<(i=mapIndexOf(scriptQueue,nmPath,rq[nmPath])))
+                  scriptQueue[i].source='late remote';
+              });
+          });
+      }
+      else
+        myLoadScriptBody(path,function(){
+          applyScriptBody(this[nmPath],this[nmResponceText],'remote');
+        });
+    }
+
+    var userCallback;
+    var confCache,confDebug;
+    var undef;
+    var args=arguments;
+    var unretrievedCount=0;
+
+    var scriptQueue=[];
+
+    if(args[1]){
+      if(typeof args[1]==='function')
+        userCallback=args[1];
+      else {
+        if(undef===(confCache=args[1].cache))
+          confCache=true;
+        if(undef===(confDebug=args[1].debug))
+          confDebug=false;
+      }
+    }
+
+    if(args[2])
+      userCallback=args[2];
+
+    var myLoadScriptBody=loadScriptBody.bind({ch:confCache});
+    var pathOrder=args[0][nmSplice]&&args[0][nmSplice](0)||args[0];
+    unretrievedCount=pathOrder[nmLength];
+    for(var i=pathOrder[nmLength];i--;)
+      retrieveScriptByPath(pathOrder[i]);
+  }
+
+  // <<<<<< start >>>>>>
+  try{
+    storage=localStorage;
+  }
+  catch(e){
+    cl.warn('Caching disabled because: '+e[nmMessage]);
+  }
+
+  loader.apply(this,arguments);
+
+  return loader;
+
+})(['/app/myapp.js'
   ,'/app/post.js'
   ],{
-  // cache:false,
+  cache:false,
   debug:true
 },function(myApp){
-  // myApp.launch()
 
   $(function(){
     $(document.body).append('<p>The execution order should be ONE > TWO > THREE > MAIN > POST </p>');
