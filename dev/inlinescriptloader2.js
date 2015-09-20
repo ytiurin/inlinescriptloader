@@ -10,8 +10,8 @@
 
 'use strict';
 
-!function(){
-var zz=0;
+(function(){
+
   var
 
   //configs
@@ -27,6 +27,14 @@ var zz=0;
   nmResponceText='responseText',nmGetResponceHeader='getResponseHeader',
   nmLastModif="last-modified",nmMessage='message',
   nmDependencies='dependencies',nmOrder='order';
+
+  function mapIndexOf(array,key,value)
+  {
+    for(var r=-1,i=array.length;i--;)
+      if(array[i][key]===value){
+        r=i;break;}
+    return r;
+  }
 
   function isFailStatus(status)
   {
@@ -70,6 +78,8 @@ var zz=0;
 
   function loadScriptBody(path,continueHandler)
   {
+    var confCache=this.ch;
+
     performRequest("get",path,{path:path},
       function(){
         if(!isFailStatus(this.status)){
@@ -88,23 +98,59 @@ var zz=0;
           continueHandler.call(this);
         }
         else
-          cl[nmError]('Failed loding '+path+': '+this.statusText);
+          cl[nmError]('Failed loading '+path+': '+this.statusText);
       });
   }
 
-  function retrieveScriptByPath(path)
+  function executeScriptQueue(pathOrder,scriptQueue)
   {
-    console.log('KK '+(zz++),path)
+    for(var l=0;l<pathOrder[nmLength];l++){
+      for(var i=scriptQueue[nmLength];i--;)
+        if(scriptQueue[i].path===pathOrder[l])
+          break;
 
-    loadScriptBody(path,function(){
+      //prepare arguments
+      var argNames=[],argValues=[];
+      var dependencies=scriptQueue[i][nmDependencies];
+      for(var j=0;j<dependencies[nmLength];j++)
+        for(var k=scriptQueue[nmLength];k--;)
+          if(dependencies[j].path===scriptQueue[k].path&&dependencies[j].name){
+            argNames[nmSplice](0,0,dependencies[j].name);
+            argValues[nmSplice](0,0,scriptQueue[k].result);
+            break;
+          }
+
+      //create function and try execute script
+      var p=new Function(argNames,scriptQueue[i].text);
+
+      try{
+        scriptQueue[i].result=p.apply({},argValues);
+      }
+      catch(e){
+        cl[nmError]('Error executing script '+scriptQueue[i].url+': '+
+          e[nmMessage]);
+      }
+    }
+
+    //execute user handler
+    try{
+      this.uc&&this.uc(scriptQueue[0].result);
+    }
+    catch(e){
+      cl[nmError]('Error executing user callback: '+e[nmMessage]);
+    }
+  }
+
+  function loader()
+  {
+    function applyScriptBody(path,text,source)
+    {
       var scriptData={};
-      scriptData.path=this.data.path;
-      scriptData.text=this[nmResponceText];
-      scriptData[nmDependencies]=parseForDI(this[nmResponceText]);
+      scriptData.path=path;
+      scriptData.text=text;
+      scriptData[nmDependencies]=parseForDI(text);
+      scriptData.source=source;
       scriptQueue[nmSplice](0,0,scriptData);
-
-      console.table(scriptQueue);
-      console.log(pathOrder);
 
       var ioPath,ioParentPath,chPath;
       for(var i=scriptData[nmDependencies][nmLength];i--;){
@@ -117,14 +163,81 @@ var zz=0;
           }
         }
         else{
+          unretrievedCount++;
           pathOrder[nmSplice](ioParentPath,0,chPath);
           retrieveScriptByPath(chPath);
         }
       }
-    });
+
+      if(--unretrievedCount<1){
+        if(confDebug){
+          cl.log(pathOrder);
+          cl.table(scriptQueue);
+        }
+        executeScriptQueue.bind({uc:userCallback})(pathOrder,scriptQueue);
+      }
+    }
+
+    function retrieveScriptByPath(path)
+    {
+      var ltext,ltime;
+
+      if(confCache&&storage&&
+      //get script from storage
+      (ltext=storage[nmGetItem](path+'[text]'))!==null&&
+      (ltime=storage[nmGetItem](path+'[time]'))!==null){
+
+        applyScriptBody(path,ltext,'local');
+
+        //compare local and remote script time
+        performRequest("head",path,{path:path},
+          function(){
+            // if status is fail, or cache expired
+            if(!isFailStatus(this.status)&&
+            this[nmGetResponceHeader](nmLastModif)!==ltime)
+              myLoadScriptBody(this.data.path,function(){
+                var i;
+                if(-1<(i=mapIndexOf(scriptQueue,'path',this.data.path)))
+                  scriptQueue[i].source='late remote';
+              });
+          });
+      }
+      else
+        myLoadScriptBody(path,function(){
+          applyScriptBody(this.data.path,this[nmResponceText],'remote');
+        });
+    }
+
+    var userCallback;
+    var confCache,confDebug;
+    var undef;
+    var args=arguments;
+    var unretrievedCount=0;
+
+    var scriptQueue=[];
+
+    if(args[1]){
+      if(typeof args[1]==='function')
+        userCallback=args[1];
+      else {
+        if(undef===(confCache=args[1].cache))
+          confCache=true;
+        if(undef===(confDebug=args[1].debug))
+          confDebug=false;
+      }
+    }
+
+    if(args[2])
+      userCallback=args[2];
+
+    var myLoadScriptBody=loadScriptBody.bind({ch:confCache});
+    var pathOrder=args[0][nmSplice]&&args[0][nmSplice](0)||args[0];
+    unretrievedCount=pathOrder.length;
+    for(var i=pathOrder.length;i--;)
+      retrieveScriptByPath(pathOrder[i]);
   }
 
-  // program start
+  // <<<<<< start >>>>>>
   try{
     storage=localStorage;
   }
@@ -132,35 +245,14 @@ var zz=0;
     cl.warn('Caching disabled because: '+e[nmMessage]);
   }
 
-  var userCallback;
-  var confCache,confDebug;
-  var undef;
-  var args=arguments;
+  loader.apply(this,arguments);
 
-  var scriptQueue=[];
+  return loader;
 
-  if(args[1]){
-    if(typeof args[1]==='function')
-      userHandler=args[1];
-    else {
-      if(undef===(confCache=args[1].cache))
-        confCache=true;
-      if(undef===(confDebug=args[1].debug))
-        confDebug=false;
-    }
-  }
-
-  if(args[2])
-    userCallback=args[2];
-
-  var pathOrder=args[0][nmSplice]&&args[0][nmSplice](0)||args[0];
-  for(var i=pathOrder.length;i--;)
-    retrieveScriptByPath(pathOrder[i]);
-
-}(['/app/myapp.js'
+})(['/app/myapp.js'
   ,'/app/post.js'
   ],{
-  cache:false,
+  // cache:false,
   debug:true
 },function(myApp){
   // myApp.launch()
