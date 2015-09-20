@@ -1,9 +1,9 @@
 /*
 * Inline script loader v0.2
-* https://github.com/ytiurin/inlinescriptloader.js
+* https://github.com/ytiurin/inlinescriptloader
 *
 * The MIT License (MIT)
-* https://github.com/ytiurin/inlinescriptloader.js/blob/master/LICENSE
+* https://github.com/ytiurin/inlinescriptloader/blob/master/LICENSE
 *
 * September 20, 2015
 */
@@ -223,7 +223,7 @@
     }
 
     var userCallback;
-    var confCache,confDebug;
+    var confCache=true,confDebug=false;
     var args=arguments;
     var unretrievedCount=0,lateCacheCount=0;
 
@@ -244,7 +244,7 @@
       userCallback=args[2];
 
     var myLoadScriptBody=loadScriptBody.bind({ch:confCache});
-    var pathOrder=args[0][nmSplice]&&args[0][nmSplice](0)||args[0];
+    var pathOrder=args[0][nmSplice]&&args[0][nmSplice](0)||[args[0]];
     unretrievedCount=pathOrder[nmLength];
     for(var i=pathOrder[nmLength];i--;)
       retrieveScriptByPath(pathOrder[i]);
