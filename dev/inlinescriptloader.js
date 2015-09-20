@@ -5,7 +5,7 @@
 * The MIT License (MIT)
 * https://github.com/ytiurin/inlinescriptloader/blob/master/LICENSE
 *
-* September 20, 2015
+* September 21, 2015
 */
 
 'use strict';
@@ -24,7 +24,7 @@
   nmError='error',nmLength='length',nmSplice='splice',nmIndexOf='indexOf',
   nmResponceText='responseText',nmGetResponceHeader='getResponseHeader',
   nmLastModif="last-modified",nmMessage='message',nmPath='path',
-  nmDependencies='dependencies';
+  nmDependencies='dependencies',nmApply='apply',nmResult='result';
 
   function mapIndexOf(array,key,value)
   {
@@ -96,7 +96,7 @@
             }
           }
 
-          continueHandler.call(rq);
+          continueHandler[nmApply](rq);
         }
         else
           cl[nmError]('Failed loading '+path+': '+rq.statusText);
@@ -115,14 +115,14 @@
         if(dependencies[j].name){
           var k=mapIndexOf(scriptQueue,nmPath,dependencies[j][nmPath]);
           argNames[nmSplice](0,0,dependencies[j].name);
-          argValues[nmSplice](0,0,scriptQueue[k].result);
+          argValues[nmSplice](0,0,scriptQueue[k][nmResult]);
         }
 
       //create function and try execute script
       var p=new Function(argNames,scriptQueue[i].text);
 
       try{
-        scriptQueue[i].result=p.apply({},argValues);
+        scriptQueue[i][nmResult]=p[nmApply]({},argValues);
       }
       catch(e){
         cl[nmError]('Error executing script '+scriptQueue[i].url+': '+
@@ -130,9 +130,11 @@
       }
     }
 
+    var conf=this;
     //execute user handler
     try{
-      this.uc&&this.uc(scriptQueue[0].result);
+      conf.uc&&conf.uc[nmApply]({},conf.up.map(function(path){
+        return scriptQueue[mapIndexOf(scriptQueue,'path',path)][nmResult]}));
     }
     catch(e){
       cl[nmError]('Error executing user callback: '+e[nmMessage]);
@@ -177,7 +179,8 @@
 
       if(--unretrievedCount<1){
         outputDebug();
-        executeScriptQueue.bind({uc:userCallback})(pathOrder,scriptQueue);
+        executeScriptQueue.bind({uc:userCallback,up:userPath})(pathOrder,
+          scriptQueue);
       }
     }
 
@@ -209,6 +212,9 @@
 
                 lateCacheCount--;
                 outputDebug();
+
+                if(lateCacheCount<1&&userCacheCallback)
+                  userCacheCallback();
               });
             else{
               lateCacheCount--;
@@ -223,9 +229,9 @@
     }
 
     var userCallback;
-    var confCache=true,confDebug=false;
+    var confCache=true,confDebug=false,userCacheCallback;
     var args=arguments;
-    var unretrievedCount=0,lateCacheCount=0;
+    var lateCacheCount=0;
 
     var scriptQueue=[];
 
@@ -237,6 +243,7 @@
           confCache=true;
         if(undef===(confDebug=args[1].debug))
           confDebug=false;
+        userCacheCallback=args[1].onLateCache;
       }
     }
 
@@ -244,8 +251,9 @@
       userCallback=args[2];
 
     var myLoadScriptBody=loadScriptBody.bind({ch:confCache});
-    var pathOrder=args[0][nmSplice]&&args[0][nmSplice](0)||[args[0]];
-    unretrievedCount=pathOrder[nmLength];
+    var userPath=args[0].slice&&args[0].slice(0)||[args[0]];
+    var pathOrder=userPath.slice(0);
+    var unretrievedCount=pathOrder[nmLength];
     for(var i=pathOrder[nmLength];i--;)
       retrieveScriptByPath(pathOrder[i]);
   }
@@ -258,16 +266,23 @@
     cl.warn('Caching disabled because: '+e[nmMessage]);
   }
 
-  loader.apply(this,arguments);
+  loader[nmApply]({},arguments);
 
   return loader;
 
 })(['/app/myapp.js'
   ,'/app/post.js'
   ],{
+
   cache:false,
-  debug:true
-},function(myApp){
+  debug:true,
+  onLateCache:function(){
+    console.log('LATE CACHING DONE');
+  }
+
+},function(myApp,post){
+  console.log('MYAPP RESULT IS:',myApp);
+  console.log('POST RESULT IS:',post);
 
   $(function(){
     $(document.body).append('<p>The execution order should be ONE > TWO > THREE > MAIN > POST </p>');
