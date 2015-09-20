@@ -18,7 +18,7 @@
   importPtrn='"import ',
 
   //internal objects aliases
-  storage,cl=console,
+  undef,storage,cl=console,
 
   //properties names
   nmError='error',nmLength='length',nmSplice='splice',nmIndexOf='indexOf',
@@ -141,6 +141,14 @@
 
   function loader()
   {
+    function outputDebug()
+    {
+      if(confDebug&&unretrievedCount<1&&lateCacheCount<1){
+        cl.log(pathOrder);
+        cl.table(scriptQueue);
+      }
+    }
+
     function applyScriptBody(path,text,source)
     {
       var scriptData={};
@@ -168,10 +176,7 @@
       }
 
       if(--unretrievedCount<1){
-        if(confDebug){
-          cl.log(pathOrder);
-          cl.table(scriptQueue);
-        }
+        outputDebug();
         executeScriptQueue.bind({uc:userCallback})(pathOrder,scriptQueue);
       }
     }
@@ -188,6 +193,7 @@
         applyScriptBody(path,ltext,'local');
 
         //compare local and remote script time
+        lateCacheCount++;
         performRequest("head",path,{time:ltime},
           function(){
             var rq=this;
@@ -195,11 +201,19 @@
             // if status is fail, or cache expired
             if(!isFailStatus(rq.status)&&
             rq[nmGetResponceHeader](nmLastModif)!==rq.d.time)
+
               myLoadScriptBody(rq[nmPath],function(){
                 var i;
                 if(-1<(i=mapIndexOf(scriptQueue,nmPath,rq[nmPath])))
                   scriptQueue[i].source='late remote';
+
+                lateCacheCount--;
+                outputDebug();
               });
+            else{
+              lateCacheCount--;
+              outputDebug();
+            }
           });
       }
       else
@@ -210,9 +224,8 @@
 
     var userCallback;
     var confCache,confDebug;
-    var undef;
     var args=arguments;
-    var unretrievedCount=0;
+    var unretrievedCount=0,lateCacheCount=0;
 
     var scriptQueue=[];
 
