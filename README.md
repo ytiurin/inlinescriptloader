@@ -1,6 +1,6 @@
-# Inline script loader
+# Inline module loader
 
-Script loader that does not require a module definition and implements the `import`-like dependency injections. It downloads code via `XHR`, executes it using the `new Function` constructor and cache it in the browser's local storage.
+Javascript module loader that relies on a file-as-module assumption and implements the `import`-like dependency injections. It downloads javascript module via `XHR`, executes it with the `new Function` constructor and cache it in browser's local storage.
 
 ## Usage
 
@@ -9,6 +9,7 @@ Script loader that does not require a module definition and implements the `impo
 ('myapp.js');
 </script>
 ```
+> Notice: You can copy/paste the above loader code as is and use it in you project.
 
 ```javascript
 //myapp.js
@@ -29,8 +30,6 @@ return {
 };
 ```
 
-You can copy/paste the above loader code as is and use it in you project.
-
 ## Configuration
 
 To configure loader, you should pass arguments to it's constructor function.
@@ -43,7 +42,7 @@ To configure loader, you should pass arguments to it's constructor function.
 
 **path**
 
-String or array of strings representing the path(s) to the javascript file(s) that should be loaded.
+String or array of strings containing path(s) to javascript file(s).
 
 **options**
 
@@ -51,13 +50,13 @@ Object containing configuration options. See **Possible options**.
 
 **scriptsLoadedHandler**
 
-Function to execute when all scripts are loaded. Function recieve the result of the last executed script as an argument.
+Function to execute when all js files are loaded. Function recieve the result of the last executed script as an argument.
 
 #### Possible options
 
 **cache**
 
-If `false`, loader will always get scripts from the remote server, ignoring the local cache. Default is `true`.
+If `false`, loader will always download js files from the remote server, ignoring the local cache. Default is `true`.
 
 **debug**
 
