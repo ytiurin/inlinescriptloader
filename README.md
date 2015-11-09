@@ -1,6 +1,6 @@
 # Inline module loader
 
-Javascript module loader that denies a module definition relying on a file-as-module assumption and implements the `import`-like dependency injections. It downloads javascript module via `XHR`, executes it with the `new Function` constructor and cache it in browser's local storage.
+Javascript module loader that relies on a file-as-module assumption and implements the `import`-like dependency injections. It downloads javascript module via `XHR`, executes it with the `new Function` constructor and cache it in browser's local storage.
 
 ## Usage
 
